@@ -1,73 +1,116 @@
-# Welcome to your Lovable project
+# Delhi WaterWatch 🌧️
 
-## Project info
+Delhi WaterWatch is a modern web application to **monitor, report, and manage waterlogging issues** across Delhi.  
+Citizens can report waterlogging with precise location and images, while administrators can review, accept/reject, and track reports on an interactive map and analytics dashboard.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+---
 
-## How can I edit this code?
+## ✨ Features
 
-There are several ways of editing your application.
+### For Citizens (Users)
+- 🔐 **Role‑based login** (User/Admin)
+- 👤 **User dashboard**
+  - Personal stats: total reports, resolved, pending, in‑progress
+  - Recent reports list with status and timestamps
+- 📝 **Report Waterlogging modal**
+  - Description, latitude, longitude, image upload
+  - Optional "Use Current Location" via browser geolocation
+- 🗺️ **Map integration**
+  - Report coordinates saved and shown on map
+  - Hotspot marking with severity (Low/Medium/High)
+- 🔔 **Notification panel**
+  - Inline dropdown with recent alerts (badge count, statuses)
+- 📨 **Alerts page** (for user‑side updates and warnings)
 
-**Use Lovable**
+### For Administrators
+- 🛡️ **Admin‑only dashboard** (protected by role)
+- 📊 **System stats**
+  - Total users, total reports, active alerts, resolved today
+- 📂 **Recent reports panel**
+  - Shows user name, description, image indicator, lat/lng, status, priority
+- ✅ **Moderation actions**
+  - Accept (mark In Progress)
+  - Reject
+  - Mark Resolved
+- 🗺️ **Map deep‑linking**
+  - “View on Map” opens map zoomed to that report with a highlighted marker
+- 🏘️ **Ward performance**
+  - Readiness scores and reports per ward
+- ⚙️ **Admin actions**
+  - Manage alerts, wards, analytics, hotspot map
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🏗️ Tech Stack
 
-**Use your preferred IDE**
+- **Frontend:** React + TypeScript + Vite
+- **UI Layer:** Tailwind CSS + custom components (cards, buttons, badges, modals)
+- **Animations:** Framer Motion
+- **Icons:** Lucide React
+- **Maps:** Leaflet + OpenStreetMap tiles
+- **State/Auth:** Custom context with `localStorage` persistence
+- **Notifications:** `sonner` toast system
+- **Routing:** React Router
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-Follow these steps:
+A normal user can sign up using the **User** tab on the login/register page and will be stored locally with role `user`.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+---
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 💾 Data Model (LocalStorage)
 
-# Step 3: Install the necessary dependencies.
-npm i
+The app uses `localStorage` for demo/prototype purposes:
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+- `users`  
+  Array of user objects (`id`, `name`, `email`, `role`, `phone`, `createdAt`).
 
-**Edit a file directly in GitHub**
+- `credentials`  
+  Array of `{ email, password, userId }` used for login.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- `currentUser`  
+  The currently logged in user.
 
-**Use GitHub Codespaces**
+- `userReports`  
+  Array of user reports with fields like:
+  - `id`
+  - `userId`, `user`
+  - `description`
+  - `location` (string)
+  - `latitude`, `longitude`
+  - `status` (`Pending | In Progress | Resolved | Rejected`)
+  - `priority` (`Low | Medium | High | Critical`)
+  - `date`
+  - `image` (blob URL)
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- `markedHotspots`  
+  Custom hotspots added via map (admin tooling / mapping UI).
 
-## What technologies are used for this project?
+- `wardsData`  
+  Static or seeded ward information with coordinates and readiness.
 
-This project is built with:
+---
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🗺️ Map & Markers
 
-## How can I deploy this project?
+The **Map page** shows two kinds of items:
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+1. **Hotspots** (severity‑based circles & markers)
+   - Severity colors:
+     - High: Red
+     - Medium: Orange
+     - Low: Green
+   - Circle radius ≈ 750m around coordinate.
 
-## Can I connect a custom domain to my Lovable project?
+2. **User Reports** (status‑based custom markers)
+   - Pending: Blue marker with ⏳
+   - In Progress: Orange marker with ⚠️
+   - Resolved: Green marker with ✅
+   - Rejected: Grey marker with ❌  
+   - Clicking opens popup with user, description, status, priority and date.
 
-Yes, you can!
+When admin clicks **“View on Map”** from the dashboard, the app navigates to:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
