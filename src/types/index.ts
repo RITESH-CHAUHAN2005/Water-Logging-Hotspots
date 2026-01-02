@@ -29,6 +29,8 @@ export interface Alert {
   id: string;
   severity: 'Critical' | 'High' | 'Medium' | 'Low';
   location: string;
+  ward?: string; // Ward name (for multi-ward support)
+  wardNo?: number; // Ward number (for multi-ward support)
   message: string;
   timestamp: Date;
   isRead: boolean;

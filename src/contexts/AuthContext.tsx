@@ -5,17 +5,19 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'ward_admin' | 'super_admin';
   phone?: string;
   address?: string;
   createdAt: string;
+  ward: string;
+  wardNo: number;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, role: 'user' | 'admin') => Promise<boolean>;
+  login: (email: string, password: string, role: 'user' | 'ward_admin' | 'super_admin') => Promise<boolean>;
   signup: (data: SignupData) => Promise<boolean>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => void;
@@ -26,7 +28,7 @@ interface SignupData {
   email: string;
   password: string;
   phone?: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'ward_admin' | 'super_admin';
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,37 +39,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize default admin account and check logged in user
   useEffect(() => {
-    // Create default admin account if not exists
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const credentials = JSON.parse(localStorage.getItem('credentials') || '[]');
+    // Always ensure admin accounts exist (recreate after cache clear)
+    let users = JSON.parse(localStorage.getItem('users') || '[]');
+    let credentials = JSON.parse(localStorage.getItem('credentials') || '[]');
     
-    const adminExists = users.some((u: User) => u.email === 'admin@delhiwaterwatch.gov.in');
+    let updated = false;
     
-    if (!adminExists) {
-      const adminUser: User = {
-        id: 'admin_default',
-        name: 'System Administrator',
-        email: 'admin@delhiwaterwatch.gov.in',
-        role: 'admin',
+    // Create Ward Admin for Rohini
+    const wardAdminExists = users.some((u: User) => u.email === 'wardadmin@rohini.gov.in');
+    if (!wardAdminExists) {
+      const wardAdminUser: User = {
+        id: 'ward_admin_rohini',
+        name: 'Rohini Ward Administrator',
+        email: 'wardadmin@rohini.gov.in',
+        role: 'ward_admin',
         phone: '+91 11 2345 6789',
         createdAt: new Date().toISOString(),
+        ward: 'Rohini',
+        wardNo: 8,
       };
       
-      const adminCred = {
-        email: 'admin@delhiwaterwatch.gov.in',
-        password: 'admin123',
-        userId: 'admin_default',
+      const wardAdminCred = {
+        email: 'wardadmin@rohini.gov.in',
+        password: 'wardadmin123',
+        userId: 'ward_admin_rohini',
       };
       
-      users.push(adminUser);
-      credentials.push(adminCred);
+      users.push(wardAdminUser);
+      credentials.push(wardAdminCred);
+      updated = true;
       
+      console.log('✅ Ward Admin account created');
+      console.log('📧 Email: wardadmin@rohini.gov.in');
+      console.log('🔑 Password: wardadmin123');
+    }
+    
+    // Create Super Admin for city-level oversight
+    const superAdminExists = users.some((u: User) => u.email === 'superadmin@delhi.gov.in');
+    if (!superAdminExists) {
+      const superAdminUser: User = {
+        id: 'super_admin_delhi',
+        name: 'Delhi City Administrator',
+        email: 'superadmin@delhi.gov.in',
+        role: 'super_admin',
+        phone: '+91 11 1234 5678',
+        createdAt: new Date().toISOString(),
+        ward: 'Delhi (All Wards)', // City-level, not ward-specific
+        wardNo: 0, // 0 indicates city-wide access, not a specific ward
+      };
+      
+      const superAdminCred = {
+        email: 'superadmin@delhi.gov.in',
+        password: 'superadmin123',
+        userId: 'super_admin_delhi',
+      };
+      
+      users.push(superAdminUser);
+      credentials.push(superAdminCred);
+      updated = true;
+      
+      console.log('✅ Super Admin account created');
+      console.log('📧 Email: superadmin@delhi.gov.in');
+      console.log('🔑 Password: superadmin123');
+    }
+    
+    // Only save if accounts were created
+    if (updated) {
       localStorage.setItem('users', JSON.stringify(users));
       localStorage.setItem('credentials', JSON.stringify(credentials));
-      
-      console.log('✅ Default admin account created');
-      console.log('📧 Email: admin@delhiwaterwatch.gov.in');
-      console.log('🔑 Password: admin123');
+      console.log('💾 Admin accounts saved to localStorage');
     }
 
     // Check if user is logged in
@@ -102,6 +142,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: data.role,
         phone: data.phone,
         createdAt: new Date().toISOString(),
+        ward: 'Rohini',
+        wardNo: 8,
       };
 
       // Store user credentials (password hashed in real app)
@@ -128,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string, role: 'user' | 'admin'): Promise<boolean> => {
+  const login = async (email: string, password: string, role: 'user' | 'ward_admin' | 'super_admin'): Promise<boolean> => {
     try {
       // Get credentials
       const credentials = JSON.parse(localStorage.getItem('credentials') || '[]');
@@ -152,7 +194,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Check role
       if (userData.role !== role) {
-        toast.error(`This account is not registered as ${role}!`);
+        const roleNames = {
+          user: 'User',
+          ward_admin: 'Ward Admin',
+          super_admin: 'Super Admin'
+        };
+        toast.error(`This account is not registered as ${roleNames[role]}!`);
         return false;
       }
 

@@ -1,7 +1,7 @@
 /**
  * Ward-Level Monsoon Preparedness Component
  * 
- * Displays ward-wise readiness for handling water-logging incidents.
+ * Displays Rohini ward readiness for handling water-logging incidents.
  * 
  * Ward Readiness Score Definition:
  * - Composite metric (0-100%) measuring flood response capacity
@@ -41,7 +41,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { wards } from '@/data/mockData';
+import { wards, CURRENT_WARD } from '@/data/mockData';
 import { Ward } from '@/types';
 
 const getReadinessColor = (score: number) => {
@@ -330,14 +330,24 @@ function WardDetails({ ward, onClose }: WardDetailsProps) {
   );
 }
 
-export function WardGrid() {
+interface WardGridProps {
+  userRole?: 'user' | 'ward_admin' | 'super_admin';
+  userWard?: string;
+}
+
+export function WardGrid({ userRole, userWard }: WardGridProps) {
   const [selectedWard, setSelectedWard] = useState<Ward | null>(null);
+
+  // Filter wards based on user role
+  const displayWards = userRole === 'super_admin' 
+    ? wards // Super admin sees all wards
+    : wards.filter(w => w.name === userWard); // Ward admin/user sees only their ward
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2">
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {wards.map((ward, index) => (
+          {displayWards.map((ward, index) => (
             <WardCard
               key={ward.wardNo}
               ward={ward}

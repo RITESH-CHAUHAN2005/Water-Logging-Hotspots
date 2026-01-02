@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Layout } from '@/components/layout/Layout';
 import { RainfallChart } from '@/components/analytics/RainfallChart';
 import { BarChart3, TrendingUp, CloudRain, Droplets, FileDown } from 'lucide-react';
-import { rainfallData } from '@/data/mockData';
+import { rainfallData, CURRENT_WARD } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 
 const Analytics = () => {
@@ -34,8 +34,8 @@ const Analytics = () => {
   return (
     <Layout>
       <Helmet>
-        <title>Analytics - Delhi WaterWatch</title>
-        <meta name="description" content="Rainfall analytics and historical data for Delhi monsoon seasons from 2019-2025." />
+        <title>Analytics - {CURRENT_WARD} Ward - Delhi WaterWatch</title>
+        <meta name="description" content={`Rainfall analytics and historical data for ${CURRENT_WARD} ward monsoon seasons from 2019-2025.`} />
       </Helmet>
 
       <motion.div
@@ -48,9 +48,9 @@ const Analytics = () => {
           <div>
             <h1 className="text-2xl md:text-3xl font-bold mb-2 flex items-center gap-2">
               <BarChart3 className="h-7 w-7 text-primary" />
-              Analytics
+              Analytics - {CURRENT_WARD} Ward
             </h1>
-            <p className="text-muted-foreground">Historical rainfall data and predictions for monsoon planning</p>
+            <p className="text-muted-foreground">Historical rainfall data and predictions for your ward's monsoon planning</p>
           </div>
 
           {/* PDF Download Button */}

@@ -14,7 +14,8 @@ import Alerts from "./pages/Alerts";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import UserDashboard from "./pages/UserDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
+import WardAdminDashboard from "./pages/WardAdminDashboard";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import NotFound from "./pages/NotFound";
 import { wards } from "@/data/mockData";
 
@@ -35,6 +36,44 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Ward Admin-only Route Component
+function WardAdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (user?.role !== 'ward_admin') {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
+// Super Admin-only Route Component
+function SuperAdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (user?.role !== 'super_admin') {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
 // Dashboard Redirect based on role
 function DashboardRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -47,7 +86,15 @@ function DashboardRedirect() {
     return <Navigate to="/login" replace />;
   }
   
-  return <Navigate to={user?.role === 'admin' ? '/admin-dashboard' : '/user-dashboard'} replace />;
+  if (user?.role === 'super_admin') {
+    return <Navigate to="/super-admin-dashboard" replace />;
+  }
+  
+  if (user?.role === 'ward_admin') {
+    return <Navigate to="/ward-admin-dashboard" replace />;
+  }
+  
+  return <Navigate to="/user-dashboard" replace />;
 }
 
 function App() {
@@ -91,7 +138,8 @@ function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/user-dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
-                  <Route path="/admin-dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+                  <Route path="/ward-admin-dashboard" element={<WardAdminRoute><WardAdminDashboard /></WardAdminRoute>} />
+                  <Route path="/super-admin-dashboard" element={<SuperAdminRoute><SuperAdminDashboard /></SuperAdminRoute>} />
                   <Route path="/map" element={<ProtectedRoute><MapPage /></ProtectedRoute>} />
                   <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
                   <Route path="/wards" element={<ProtectedRoute><Wards /></ProtectedRoute>} />

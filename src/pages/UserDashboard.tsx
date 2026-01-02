@@ -108,8 +108,18 @@ const UserDashboard = () => {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
         className="space-y-6"
-      >
-        {/* Header */}
+      >        {/* Ward Banner */}
+        <div className="glass-card-elevated rounded-xl p-4 bg-gradient-to-r from-primary/10 to-primary/5 border-l-4 border-primary">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary/20 p-2">
+              <MapPin className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">Your Ward: {user.ward}</h2>
+              <p className="text-sm text-muted-foreground">Ward No. {user.wardNo} - All data shown is specific to your ward</p>
+            </div>
+          </div>
+        </div>        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center text-primary-foreground font-bold text-xl">

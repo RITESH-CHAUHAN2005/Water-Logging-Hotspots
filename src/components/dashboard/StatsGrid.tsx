@@ -8,7 +8,7 @@ export function StatsGrid() {
       <StatCard
         title="Total Hotspots"
         value={stats.totalHotspots}
-        subtitle="Monitored locations"
+        subtitle="In Rohini ward"
         icon={MapPin}
         gradient="primary"
         delay={0}
@@ -23,30 +23,29 @@ export function StatsGrid() {
         gradient="destructive"
         delay={0.1}
         trend="up"
-        trendValue="+2 today"
+        trendValue="+1 this week"
         isPriority={true}
       />
       <StatCard
-        title="Wards Ready"
-        value={stats.wardsReady}
-        subtitle={`of ${stats.totalWards} total wards`}
+        title="Ward Readiness"
+        value={`${stats.wardReadiness}%`}
+        subtitle="Flood response capacity"
         icon={CheckCircle}
         gradient="success"
         delay={0.2}
-        percentage={Math.round((stats.wardsReady / stats.totalWards) * 100)}
         trend="up"
-        trendValue="+12%"
+        trendValue="+5% improved"
       />
       <StatCard
         title="Active Alerts"
         value={stats.activeAlerts}
-        subtitle="Ongoing incidents"
+        subtitle="In your ward"
         icon={Activity}
         gradient="warning"
         delay={0.3}
         isBlinking={stats.activeAlerts > 0}
         trend="up"
-        trendValue="+3 new"
+        trendValue="+2 new"
         isPriority={true}
       />
     </div>
