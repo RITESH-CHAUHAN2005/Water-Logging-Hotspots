@@ -42,32 +42,69 @@ interface Report {
   image?: string | null;
 }
 
-const AdminDashboard = () => {
+const WardAdminDashboard = () => {
   const navigate = useNavigate();
   const { user, logout, isAuthenticated } = useAuth();
-  const [allUsers, setAllUsers] = useState<any[]>([]);
-  const [allReports, setAllReports] = useState<Report[]>([]);
-  const [allHotspots, setAllHotspots] = useState<any[]>([]);
+  const [wardUsers, setWardUsers] = useState<any[]>([]);
+  const [wardReports, setWardReports] = useState<Report[]>([]);
+  const [wardHotspots, setWardHotspots] = useState<any[]>([]);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
-  // Redirect if not logged in - This component is deprecated, redirecting to proper dashboard
+  // Redirect if not logged in or not ward admin
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
-    // Redirect based on role
-    if (user?.role === 'super_admin') {
-      navigate('/super-admin-dashboard');
-    } else if (user?.role === 'ward_admin') {
-      navigate('/ward-admin-dashboard');
-    } else {
-      navigate('/user-dashboard');
+    if (user?.role !== 'ward_admin') {
+      navigate('/');
+      return;
     }
+
+    const loadData = () => {
+      const allUsers = JSON.parse(localStorage.getItem('users') || '[]');
+      const allReports = JSON.parse(localStorage.getItem('userReports') || '[]');
+      const allHotspots = JSON.parse(localStorage.getItem('markedHotspots') || '[]');
+      
+      console.log('🔍 Ward Admin - Loading data for ward:', user.ward);
+      console.log('📊 Total reports in system:', allReports.length);
+      
+      // Filter data for current ward only
+      const currentWard = user.ward;
+      const filteredUsers = allUsers.filter((u: any) => u.ward === currentWard);
+      
+      // More flexible report filtering - check ward field first, then location
+      const filteredReports = allReports.filter((r: any) => {
+        const matchesWard = r.ward === currentWard;
+        const matchesLocation = r.location?.toLowerCase().includes(currentWard.toLowerCase());
+        const match = matchesWard || matchesLocation;
+        
+        if (match) {
+          console.log('✅ Report matches:', { id: r.id, ward: r.ward, location: r.location });
+        }
+        
+        return match;
+      });
+      
+      console.log('📋 Filtered reports for ward:', filteredReports.length);
+      
+      const filteredHotspots = allHotspots.filter((h: any) => 
+        h.wardNo === user.wardNo || h.location?.toLowerCase().includes(currentWard.toLowerCase())
+      );
+      
+      setWardUsers(filteredUsers);
+      setWardReports(filteredReports);
+      setWardHotspots(filteredHotspots);
+    };
+
+    loadData();
+    window.addEventListener('reportsUpdated', loadData);
+    return () => window.removeEventListener('reportsUpdated', loadData);
   }, [isAuthenticated, user, navigate]);
 
-  // This component is deprecated
-  return null;
+  if (!user || user.role !== 'ward_admin') {
+    return null;
+  }
 
   // Accept Report
   const acceptReport = (reportId: number) => {
@@ -106,17 +143,17 @@ const AdminDashboard = () => {
   };
 
   const stats = {
-    totalUsers: allUsers.length,
-    totalReports: allReports.length,
-    activeAlerts: allReports.filter(r => r.status === 'Pending' || r.status === 'In Progress').length,
-    resolvedToday: allReports.filter(r => {
+    totalUsers: wardUsers.length,
+    totalReports: wardReports.length,
+    activeAlerts: wardReports.filter(r => r.status === 'Pending' || r.status === 'In Progress').length,
+    resolvedToday: wardReports.filter(r => {
       const reportDate = new Date(r.date);
       const today = new Date();
       return r.status === 'Resolved' && reportDate.toDateString() === today.toDateString();
     }).length,
   };
 
-  const recentReports = allReports
+  const recentReports = wardReports
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 4);
 
@@ -180,7 +217,7 @@ const AdminDashboard = () => {
               <Shield className="h-8 w-8 text-warning" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+              <h1 className="text-2xl font-bold">Ward Admin Dashboard</h1>
               <p className="text-muted-foreground">Welcome back, {user.name}</p>
               <p className="text-xs text-muted-foreground">{user.email}</p>
             </div>
@@ -201,8 +238,8 @@ const AdminDashboard = () => {
         <div className="p-4 rounded-xl bg-warning/10 border border-warning/20 flex items-center gap-3">
           <Shield className="h-5 w-5 text-warning" />
           <div>
-            <p className="font-semibold text-sm">Administrator Access</p>
-            <p className="text-xs text-muted-foreground">You have full system access and management capabilities</p>
+            <p className="font-semibold text-sm">Ward Administrator Access</p>
+            <p className="text-xs text-muted-foreground">Managing {user.ward} Ward - You can verify and resolve reports in your ward</p>
           </div>
         </div>
 
@@ -522,4 +559,4 @@ const AdminDashboard = () => {
   );
 };
 
-export default AdminDashboard;
+export default WardAdminDashboard;

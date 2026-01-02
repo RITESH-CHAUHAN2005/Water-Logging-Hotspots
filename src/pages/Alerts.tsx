@@ -17,8 +17,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { CURRENT_WARD, alerts } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Alerts = () => {
+  const { user } = useAuth();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState({
     soundEnabled: true,
@@ -32,6 +35,21 @@ const Alerts = () => {
     phone: '',
   });
 
+  // Filter alerts based on user role
+  const displayAlerts = user?.role === 'super_admin' 
+    ? alerts // Super Admin sees ALL alerts
+    : alerts.filter(a => a.ward === CURRENT_WARD || !a.ward); // User/Ward Admin sees only ward alerts
+
+  // Calculate stats based on filtered alerts
+  const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const recentAlerts = displayAlerts.filter(a => new Date(a.timestamp) > last24Hours);
+  const alertStats = {
+    critical: recentAlerts.filter(a => a.severity === 'Critical').length,
+    high: recentAlerts.filter(a => a.severity === 'High').length,
+    medium: recentAlerts.filter(a => a.severity === 'Medium').length,
+    low: recentAlerts.filter(a => a.severity === 'Low').length,
+  };
+
   const handleSettingChange = (key: string, value: boolean | string) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
@@ -41,11 +59,23 @@ const Alerts = () => {
     setSettingsOpen(false);
   };
 
+  const pageTitle = user?.role === 'super_admin' 
+    ? 'Alerts - City-Wide - Delhi WaterWatch'
+    : `Alerts - ${CURRENT_WARD} Ward - Delhi WaterWatch`;
+
+  const pageHeading = user?.role === 'super_admin'
+    ? 'City-Wide Alerts Center'
+    : `Alerts Center - ${CURRENT_WARD} Ward`;
+
+  const pageDescription = user?.role === 'super_admin'
+    ? 'Monitor real-time notifications across all wards'
+    : "Real-time notifications for your ward's incidents";
+
   return (
     <Layout>
       <Helmet>
-        <title>Alerts - Delhi WaterWatch</title>
-        <meta name="description" content="Real-time alerts and notifications for water-logging incidents across Delhi." />
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDescription} />
       </Helmet>
 
       <motion.div
@@ -57,9 +87,9 @@ const Alerts = () => {
           <div>
             <h1 className="text-2xl md:text-3xl font-bold mb-2 flex items-center gap-2">
               <Bell className="h-7 w-7 text-primary" />
-              Alerts Center
+              {pageHeading}
             </h1>
-            <p className="text-muted-foreground">Real-time notifications and incident management</p>
+            <p className="text-muted-foreground">{pageDescription}</p>
           </div>
           
           <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
@@ -242,28 +272,28 @@ const Alerts = () => {
                   <span className="w-3 h-3 rounded-full bg-destructive animate-pulse" />
                   <span className="font-medium">Critical Alerts</span>
                 </div>
-                <span className="text-2xl font-bold text-destructive">1</span>
+                <span className="text-2xl font-bold text-destructive">{alertStats.critical}</span>
               </div>
               <div className="flex items-center justify-between p-4 rounded-xl bg-warning/10 border border-warning/20">
                 <div className="flex items-center gap-3">
                   <span className="w-3 h-3 rounded-full bg-warning" />
                   <span className="font-medium">High Priority</span>
                 </div>
-                <span className="text-2xl font-bold text-warning">2</span>
+                <span className="text-2xl font-bold text-warning">{alertStats.high}</span>
               </div>
               <div className="flex items-center justify-between p-4 rounded-xl bg-primary/10 border border-primary/20">
                 <div className="flex items-center gap-3">
                   <span className="w-3 h-3 rounded-full bg-primary" />
                   <span className="font-medium">Medium Priority</span>
                 </div>
-                <span className="text-2xl font-bold text-primary">1</span>
+                <span className="text-2xl font-bold text-primary">{alertStats.medium}</span>
               </div>
               <div className="flex items-center justify-between p-4 rounded-xl bg-secondary border border-border">
                 <div className="flex items-center gap-3">
                   <span className="w-3 h-3 rounded-full bg-muted-foreground" />
                   <span className="font-medium">Low Priority</span>
                 </div>
-                <span className="text-2xl font-bold">1</span>
+                <span className="text-2xl font-bold">{alertStats.low}</span>
               </div>
             </div>
           </motion.div>

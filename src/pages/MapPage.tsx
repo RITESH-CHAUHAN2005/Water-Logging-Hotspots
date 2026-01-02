@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { ROHINI_WARD_BOUNDARY, ROHINI_CENTER, CURRENT_WARD, DELHI_CENTER, WARD_BOUNDARIES, wards } from '@/data/mockData';
 
 // Fix icon URLs
 const iconRetinaUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png';
@@ -59,8 +60,9 @@ export default function MapPage() {
   const tempMarkerRef = useRef<L.Marker | null>(null);
   const wardMarkerRef = useRef<L.Marker | null>(null);
 
-  // Check if user is admin
-  const isAdmin = user?.role === 'admin';
+  // Check if user is admin or super admin
+  const isAdmin = user?.role === 'ward_admin';
+  const isSuperAdmin = user?.role === 'super_admin';
 
   // Get parameters from URL
   const wardNo = searchParams.get('ward');
@@ -128,10 +130,11 @@ export default function MapPage() {
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Determine initial view
-    let initialLat = 28.6139;
-    let initialLng = 77.2090;
-    let initialZoom = 11;
+    // Determine initial view based on role and parameters
+    let initialLat = isSuperAdmin ? DELHI_CENTER[0] : ROHINI_CENTER[0];
+    let initialLng = isSuperAdmin ? DELHI_CENTER[1] : ROHINI_CENTER[1];
+    let initialZoom = isSuperAdmin ? 11 : 12; // Super Admin sees wider city view
+    let minZoom = isSuperAdmin ? 10 : 12; // Super Admin can zoom out more
 
     if (reportId && reportLat && reportLng) {
       initialLat = parseFloat(reportLat);
@@ -140,11 +143,19 @@ export default function MapPage() {
     } else if (wardNo && wardLat && wardLng) {
       initialLat = parseFloat(wardLat);
       initialLng = parseFloat(wardLng);
-      initialZoom = 15;
+      initialZoom = 13;
     }
 
+    // Set bounds based on role
+    const bounds: L.LatLngBoundsExpression = isSuperAdmin
+      ? [[28.4000, 76.8000], [28.9000, 77.4000]] // Wider Delhi bounds for Super Admin
+      : [[28.6500, 77.0300], [28.8000, 77.1700]]; // Rohini ward bounds
+
     const map = L.map(mapContainerRef.current, {
-      zoomControl: false
+      zoomControl: false,
+      minZoom: minZoom,
+      maxZoom: 18,
+      maxBounds: bounds,
     }).setView([initialLat, initialLng], initialZoom);
     
     L.control.zoom({
@@ -155,6 +166,93 @@ export default function MapPage() {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 19
     }).addTo(map);
+
+    // Draw ward boundaries based on role
+    if (isSuperAdmin) {
+      // Super Admin sees all ward boundaries
+      wards.forEach((ward) => {
+        const wardBoundary = WARD_BOUNDARIES[ward.name];
+        if (wardBoundary) {
+          // Color based on readiness
+          const color = ward.readiness >= 70 ? '#10b981' : ward.readiness >= 60 ? '#8b5cf6' : ward.readiness >= 50 ? '#f59e0b' : '#ef4444';
+          
+          const wardPolygon = L.polygon(wardBoundary as L.LatLngExpression[], {
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.2,
+            weight: 3,
+            dashArray: '10, 5',
+          }).addTo(map);
+          
+          wardPolygon.bindPopup(`
+            <div class="p-3" style="min-width: 220px;">
+              <h3 class="font-bold text-lg mb-1">${ward.name} Ward</h3>
+              <p class="text-sm text-gray-600 mb-2">Ward No. ${ward.wardNo}</p>
+              <div class="text-xs space-y-1">
+                <div style="display: flex; justify-content: space-between;">
+                  <span>Total Hotspots:</span>
+                  <span class="font-semibold">${ward.hotspots}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span>Readiness:</span>
+                  <span class="font-semibold" style="color: ${color};">${ward.readiness}%</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span>Pumps:</span>
+                  <span class="font-semibold">${ward.resources.pumps}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span>Personnel:</span>
+                  <span class="font-semibold">${ward.resources.personnel}</span>
+                </div>
+              </div>
+              <p class="text-xs text-gray-400 mt-2" style="font-style: italic;">Read-only overview</p>
+            </div>
+          `);
+          
+          wardPolygon.on('click', () => {
+            map.flyTo([ward.coords[0], ward.coords[1]], 13, {
+              duration: 1.5,
+              easeLinearity: 0.25
+            });
+          });
+        }
+      });
+    } else {
+      // Ward Admin/User sees only Rohini ward boundary
+      const wardPolygon = L.polygon(ROHINI_WARD_BOUNDARY as L.LatLngExpression[], {
+        color: '#8b5cf6',
+        fillColor: '#a78bfa',
+        fillOpacity: 0.15,
+        weight: 4,
+        dashArray: '15, 8',
+      }).addTo(map);
+      
+      wardPolygon.bindPopup(`
+        <div class="p-3" style="min-width: 200px;">
+          <h3 class="font-bold text-lg mb-1">${CURRENT_WARD} Ward</h3>
+          <p class="text-sm text-gray-600 mb-2">Ward No. 8</p>
+          <div class="text-xs space-y-1">
+            <div style="display: flex; justify-content: space-between;">
+              <span>Total Hotspots:</span>
+              <span class="font-semibold">8</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Readiness:</span>
+              <span class="font-semibold" style="color: #8b5cf6;">65%</span>
+            </div>
+          </div>
+          <p class="text-xs text-gray-400 mt-2" style="font-style: italic;">Click to zoom into ward</p>
+        </div>
+      `);
+      
+      wardPolygon.on('click', () => {
+        map.flyTo([ROHINI_CENTER[0], ROHINI_CENTER[1]], 13, {
+          duration: 1.5,
+          easeLinearity: 0.25
+        });
+      });
+    }
 
     // ONLY ADMIN CAN CLICK TO MARK - Others can only view
     if (isAdmin) {
@@ -235,7 +333,7 @@ export default function MapPage() {
       map.remove();
       mapRef.current = null;
     };
-  }, [wardNo, wardLat, wardLng, wardReadiness, reportId, reportLat, reportLng, isAdmin]);
+  }, [wardNo, wardLat, wardLng, wardReadiness, reportId, reportLat, reportLng, isAdmin, isSuperAdmin]);
 
   // Load report markers on map (VISIBLE TO ALL)
   useEffect(() => {

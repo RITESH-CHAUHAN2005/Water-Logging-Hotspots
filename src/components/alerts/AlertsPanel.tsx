@@ -11,12 +11,14 @@ import {
   Volume2, 
   VolumeX,
   X,
-  ExternalLink
+  ExternalLink,
+  Building2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { alerts as initialAlerts } from '@/data/mockData';
+import { alerts as initialAlerts, CURRENT_WARD, wards } from '@/data/mockData';
 import { Alert as AlertType } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 const severityConfig = {
   Critical: {
@@ -50,14 +52,29 @@ const severityConfig = {
 };
 
 export function AlertsPanel() {
-  const [alerts, setAlerts] = useState<AlertType[]>(initialAlerts);
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
+  
+  // Filter alerts based on user role
+  const roleFilteredAlerts = isSuperAdmin
+    ? initialAlerts // Super Admin sees all alerts
+    : initialAlerts.filter(a => a.ward === CURRENT_WARD || !a.ward); // Ward Admin/User sees only ward alerts
+  
+  const [alerts, setAlerts] = useState<AlertType[]>(roleFilteredAlerts);
   const [filter, setFilter] = useState<string>('all');
+  const [wardFilter, setWardFilter] = useState<string>('all');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const filteredAlerts = filter === 'all' 
+  // Apply both severity and ward filters
+  let filteredAlerts = filter === 'all' 
     ? alerts 
     : alerts.filter(a => a.severity.toLowerCase() === filter);
+  
+  // Apply ward filter for Super Admin
+  if (isSuperAdmin && wardFilter !== 'all') {
+    filteredAlerts = filteredAlerts.filter(a => a.ward === wardFilter);
+  }
 
   const unreadCount = alerts.filter(a => !a.isRead).length;
 
@@ -147,20 +164,52 @@ export function AlertsPanel() {
         </div>
 
         {/* Filters */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {['all', 'critical', 'high', 'medium', 'low'].map((f) => (
-            <Button
-              key={f}
-              size="sm"
-              variant={filter === f ? 'default' : 'outline'}
-              onClick={() => setFilter(f)}
-              className={`text-xs capitalize rounded-full h-7 px-3 flex-shrink-0 ${
-                filter === f ? '' : 'bg-transparent border-border/50 hover:bg-secondary'
-              }`}
-            >
-              {f}
-            </Button>
-          ))}
+        <div className="space-y-2">
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {['all', 'critical', 'high', 'medium', 'low'].map((f) => (
+              <Button
+                key={f}
+                size="sm"
+                variant={filter === f ? 'default' : 'outline'}
+                onClick={() => setFilter(f)}
+                className={`text-xs capitalize rounded-full h-7 px-3 flex-shrink-0 ${
+                  filter === f ? '' : 'bg-transparent border-border/50 hover:bg-secondary'
+                }`}
+              >
+                {f}
+              </Button>
+            ))}
+          </div>
+          
+          {/* Ward filter for Super Admin */}
+          {isSuperAdmin && (
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              <Button
+                size="sm"
+                variant={wardFilter === 'all' ? 'default' : 'outline'}
+                onClick={() => setWardFilter('all')}
+                className={`text-xs rounded-full h-7 px-3 flex-shrink-0 ${
+                  wardFilter === 'all' ? '' : 'bg-transparent border-border/50 hover:bg-secondary'
+                }`}
+              >
+                <Building2 className="h-3 w-3 mr-1" />
+                All Wards
+              </Button>
+              {wards.map((ward) => (
+                <Button
+                  key={ward.wardNo}
+                  size="sm"
+                  variant={wardFilter === ward.name ? 'default' : 'outline'}
+                  onClick={() => setWardFilter(ward.name)}
+                  className={`text-xs rounded-full h-7 px-3 flex-shrink-0 ${
+                    wardFilter === ward.name ? '' : 'bg-transparent border-border/50 hover:bg-secondary'
+                  }`}
+                >
+                  {ward.name}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -191,10 +240,16 @@ export function AlertsPanel() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       {/* Header row */}
-                      <div className="flex items-center gap-2 mb-1.5">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                         <Badge className={`${config.badge} text-[10px] font-semibold px-1.5 py-0`}>
                           {alert.severity}
                         </Badge>
+                        {alert.ward && isSuperAdmin && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            <Building2 className="h-2.5 w-2.5 mr-1" />
+                            {alert.ward}
+                          </Badge>
+                        )}
                         {!alert.isRead && (
                           <span className="relative flex h-2 w-2">
                             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${config.dot} opacity-75`}></span>

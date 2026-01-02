@@ -1,11 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, MapPin, Clock, Ruler, Navigation, X, Route } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { hotspots, wards } from '@/data/mockData';
+import { hotspots, wards, ROHINI_WARD_BOUNDARY, ROHINI_CENTER } from '@/data/mockData';
 import type { Hotspot, RiskLevel } from '@/types';
 import 'leaflet/dist/leaflet.css';
 
@@ -153,11 +153,11 @@ interface HotspotMapProps {
 }
 
 export function HotspotMap({ showGeofencing = true, height = '500px' }: HotspotMapProps) {
-  const [userPosition, setUserPosition] = useState<[number, number]>([28.6400, 77.2200]);
+  const [userPosition, setUserPosition] = useState<[number, number]>(ROHINI_CENTER);
   const [alertHotspot, setAlertHotspot] = useState<Hotspot | null>(null);
   const [alertDistance, setAlertDistance] = useState<number>(0);
   const [nearestDistance, setNearestDistance] = useState<number | null>(null);
-  const [userPos, setUserPos] = useState<L.LatLng>(L.latLng(28.6400, 77.2200));
+  const [userPos, setUserPos] = useState<L.LatLng>(L.latLng(ROHINI_CENTER[0], ROHINI_CENTER[1]));
 
   const checkGeofence = useCallback((pos: [number, number]) => {
     let minDistance = Infinity;
@@ -197,8 +197,8 @@ export function HotspotMap({ showGeofencing = true, height = '500px' }: HotspotM
   );
 
   const resetUserPosition = () => {
-    setUserPosition([28.6400, 77.2200]);
-    setUserPos(L.latLng(28.6400, 77.2200));
+    setUserPosition(ROHINI_CENTER);
+    setUserPos(L.latLng(ROHINI_CENTER[0], ROHINI_CENTER[1]));
     setNearestDistance(null);
   };
 
@@ -206,15 +206,62 @@ export function HotspotMap({ showGeofencing = true, height = '500px' }: HotspotM
     <div className="relative">
       <div className="glass-card rounded-xl overflow-hidden" style={{ height }}>
         <MapContainer
-          center={[28.6139, 77.2090]}
-          zoom={11}
+          center={ROHINI_CENTER}
+          zoom={12}
+          minZoom={12}
+          maxZoom={18}
           style={{ height: '100%', width: '100%' }}
           scrollWheelZoom={true}
+          maxBounds={[
+            [28.6500, 77.0300],
+            [28.8000, 77.1700],
+          ]}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           />
+
+          {/* Rohini Ward Boundary */}
+          <Polygon
+            positions={ROHINI_WARD_BOUNDARY as L.LatLngExpression[]}
+            pathOptions={{
+              color: '#8b5cf6',
+              fillColor: '#a78bfa',
+              fillOpacity: 0.15,
+              weight: 4,
+              dashArray: '15, 8',
+            }}
+            eventHandlers={{
+              click: (e) => {
+                const map = e.target._map;
+                if (map) {
+                  map.flyTo(ROHINI_CENTER, 13, {
+                    duration: 1.5,
+                    easeLinearity: 0.25
+                  });
+                }
+              }
+            }}
+          >
+            <Popup>
+              <div className="p-3 min-w-[200px]">
+                <h3 className="font-bold text-lg text-gray-900 mb-1">Rohini Ward</h3>
+                <p className="text-sm text-gray-600 mb-2">Ward No. 8</p>
+                <div className="text-xs text-gray-500 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Total Hotspots:</span>
+                    <span className="font-semibold">8</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Readiness:</span>
+                    <span className="font-semibold text-primary">65%</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-2 italic">Click to zoom into ward</p>
+              </div>
+            </Popup>
+          </Polygon>
 
           {/* Hotspot circles - dotted borders */}
           {hotspots.map((hotspot) => (

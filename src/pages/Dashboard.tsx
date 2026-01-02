@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { hotspots } from '@/data/mockData';
+import { hotspots, CURRENT_WARD } from '@/data/mockData';
 
 const Dashboard = () => {
   const topHotspots = hotspots.slice(0, 4);
@@ -54,10 +54,10 @@ const Dashboard = () => {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-0.5">
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Dashboard
+              Dashboard - <span className="text-primary">{CURRENT_WARD} Ward</span>
             </h1>
             <p className="text-xs text-muted-foreground sm:text-sm">
-              Real-time water-logging monitoring for Delhi NCR
+              Real-time water-logging monitoring for your ward
             </p>
           </div>
           
@@ -91,10 +91,10 @@ const Dashboard = () => {
                   </div>
                   <div className="min-w-0">
                     <CardTitle className="text-sm font-semibold sm:text-base">
-                      Delhi Hotspots
+                      {CURRENT_WARD} Ward Hotspots
                     </CardTitle>
                     <p className="mt-0.5 text-[10px] text-muted-foreground sm:text-xs">
-                      Active flood-prone locations
+                      Active flood-prone locations in your ward
                     </p>
                   </div>
                 </div>

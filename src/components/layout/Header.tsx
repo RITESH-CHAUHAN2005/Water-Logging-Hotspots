@@ -23,7 +23,9 @@ export function Header() {
   // Generate navigation items based on user role
   const getDashboardPath = () => {
     if (!user) return '/';
-    return user.role === 'admin' ? '/admin-dashboard' : '/user-dashboard';
+    if (user.role === 'super_admin') return '/super-admin-dashboard';
+    if (user.role === 'ward_admin') return '/ward-admin-dashboard';
+    return '/user-dashboard';
   };
   
   const navItems = [
@@ -58,7 +60,7 @@ export function Header() {
                 Delhi <span className="text-primary">WaterWatch</span>
               </span>
               <span className="text-xs text-muted-foreground font-medium">
-                Waterlogging Monitoring System
+                {user ? `${user.ward} Ward` : 'Waterlogging Monitoring System'}
               </span>
             </div>
           </Link>

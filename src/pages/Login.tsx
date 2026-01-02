@@ -11,27 +11,28 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user: currentUser } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'user' | 'admin'>('user');
+  const [activeTab, setActiveTab] = useState<'user' | 'ward_admin' | 'super_admin'>('user');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
 
   // Redirect if already logged in
-  if (isAuthenticated) {
-    const { user } = useAuth();
-    if (user?.role === 'admin') {
-      navigate('/admin-dashboard');
+  if (isAuthenticated && currentUser) {
+    if (currentUser.role === 'super_admin') {
+      navigate('/super-admin-dashboard');
+    } else if (currentUser.role === 'ward_admin') {
+      navigate('/ward-admin-dashboard');
     } else {
       navigate('/user-dashboard');
     }
     return null;
   }
 
-  const handleSubmit = async (e: React.FormEvent, role: 'user' | 'admin') => {
+  const handleSubmit = async (e: React.FormEvent, role: 'user' | 'ward_admin' | 'super_admin') => {
     e.preventDefault();
     
     if (!formData.email || !formData.password) {
@@ -47,8 +48,10 @@ const Login = () => {
     if (success) {
       // Redirect based on role
       setTimeout(() => {
-        if (role === 'admin') {
-          navigate('/admin-dashboard');
+        if (role === 'super_admin') {
+          navigate('/super-admin-dashboard');
+        } else if (role === 'ward_admin') {
+          navigate('/ward-admin-dashboard');
         } else {
           navigate('/user-dashboard');
         }
@@ -97,15 +100,19 @@ const Login = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'user' | 'admin')} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'user' | 'ward_admin' | 'super_admin')} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 mb-6">
                 <TabsTrigger value="user" className="flex items-center gap-2">
                   <User className="h-4 w-4" />
                   User
                 </TabsTrigger>
-                <TabsTrigger value="admin" className="flex items-center gap-2">
+                <TabsTrigger value="ward_admin" className="flex items-center gap-2">
                   <Shield className="h-4 w-4" />
-                  Admin
+                  Ward
+                </TabsTrigger>
+                <TabsTrigger value="super_admin" className="flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Super
                 </TabsTrigger>
               </TabsList>
 
@@ -163,12 +170,12 @@ const Login = () => {
                 </form>
               </TabsContent>
 
-              <TabsContent value="admin">
-                <form onSubmit={(e) => handleSubmit(e, 'admin')} className="space-y-4">
+              <TabsContent value="ward_admin">
+                <form onSubmit={(e) => handleSubmit(e, 'ward_admin')} className="space-y-4">
                   <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 mb-4">
                     <p className="text-xs text-warning flex items-center gap-2">
                       <Shield className="h-4 w-4" />
-                      Admin access requires authorized credentials
+                      Ward Admin: wardadmin@rohini.gov.in / wardadmin123
                     </p>
                   </div>
                   <div className="space-y-2">
@@ -211,7 +218,60 @@ const Login = () => {
                     </div>
                   </div>
                   <Button type="submit" className="w-full gradient-primary text-primary-foreground" disabled={isLoading}>
-                    {isLoading ? 'Signing in...' : 'Sign In as Admin'}
+                    {isLoading ? 'Signing in...' : 'Sign In as Ward Admin'}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="super_admin">
+                <form onSubmit={(e) => handleSubmit(e, 'super_admin')} className="space-y-4">
+                  <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 mb-4">
+                    <p className="text-xs text-primary flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      Super Admin: superadmin@delhi.gov.in / superadmin123
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="super-admin-email">Super Admin Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="super-admin-email"
+                        type="email"
+                        placeholder="superadmin@delhi.gov.in"
+                        className="pl-10"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="super-admin-password">Super Admin Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="super-admin-password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        className="pl-10 pr-10"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full gradient-primary text-primary-foreground" disabled={isLoading}>
+                    {isLoading ? 'Signing in...' : 'Sign In as Super Admin'}
                   </Button>
                 </form>
               </TabsContent>
