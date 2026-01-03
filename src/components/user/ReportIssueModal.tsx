@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { ROHINI_WARD_BOUNDARY, ROHINI_CENTER } from '@/data/mockData';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -316,6 +317,25 @@ export function ReportIssueModal({ isOpen, onClose }: ReportIssueModalProps) {
   );
 }
 
+// Helper function to check if point is inside polygon using proper ray casting
+function isPointInPolygon(point: L.LatLng, polygon: L.LatLng[]): boolean {
+  const x = point.lng;
+  const y = point.lat;
+  let inside = false;
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lng;
+    const yi = polygon[i].lat;
+    const xj = polygon[j].lng;
+    const yj = polygon[j].lat;
+
+    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+
+  return inside;
+}
+
 // Map Picker Modal Component
 interface MapPickerModalProps {
   onClose: () => void;
@@ -331,17 +351,64 @@ function MapPickerModal({ onClose, onSelect }: MapPickerModalProps) {
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Initialize map
-    const map = L.map(mapContainerRef.current).setView([28.6139, 77.2090], 11);
+    // Initialize map centered on Rohini area with zoomed-in view
+    const map = L.map(mapContainerRef.current, {
+      preferCanvas: true, // Better performance
+    }).setView([28.7250, 77.1000], 14);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19,
     }).addTo(map);
 
-    // Handle map clicks
+    // Draw Rohini ward boundary as NON-INTERACTIVE (doesn't capture clicks)
+    const wardPolygon = L.polygon(ROHINI_WARD_BOUNDARY as L.LatLngExpression[], {
+      color: '#3b82f6',
+      fillOpacity: 0,
+      weight: 3,
+      dashArray: '10, 5',
+      interactive: false, // KEY: This prevents polygon from capturing clicks
+    }).addTo(map);
+    
+    // Store polygon coordinates for validation
+    const polygonCoords = (wardPolygon.getLatLngs()[0] as L.LatLng[]);
+
+    // Handle map clicks (NOT polygon clicks)
     map.on('click', (e: L.LeafletMouseEvent) => {
       const { lat, lng } = e.latlng;
+      const clickPoint = L.latLng(lat, lng);
+      
+      // Validate if click is inside the ward boundary
+      const inside = isPointInPolygon(clickPoint, polygonCoords);
+      
+      console.log('Map clicked at:', lat, lng, '| Inside ward:', inside);
+      
+      if (!inside) {
+        // Show orange marker for invalid clicks (outside boundary)
+        if (markerRef.current) {
+          markerRef.current.remove();
+        }
+        
+        markerRef.current = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background-color: #ef4444; width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 3px 10px rgba(0,0,0,0.5);"></div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 30],
+          })
+        })
+          .addTo(map)
+          .bindPopup(`<b>❌ Outside Ward</b><br/>Lat: ${lat.toFixed(6)}<br/>Lng: ${lng.toFixed(6)}<br/><span style="color: #ef4444; font-size: 11px;">Please click inside the blue boundary</span>`)
+          .openPopup();
+        
+        toast.error('Please click inside the Rohini ward boundary (blue line)', {
+          duration: 2500,
+        });
+        return;
+      }
+      
+      // Valid click inside boundary
+      toast.success('Location selected! ✓', { duration: 1000 });
       setSelectedPosition({ lat, lng });
 
       // Remove existing marker
@@ -349,10 +416,17 @@ function MapPickerModal({ onClose, onSelect }: MapPickerModalProps) {
         markerRef.current.remove();
       }
 
-      // Add new marker
-      markerRef.current = L.marker([lat, lng])
+      // Add GREEN marker for valid selection
+      markerRef.current = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: 'custom-marker',
+          html: `<div style="background-color: #22c55e; width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 3px 10px rgba(0,0,0,0.5);"></div>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 30],
+        })
+      })
         .addTo(map)
-        .bindPopup(`<b>Selected Location</b><br/>Lat: ${lat.toFixed(6)}<br/>Lng: ${lng.toFixed(6)}`)
+        .bindPopup(`<b>✓ Selected Location</b><br/>Lat: ${lat.toFixed(6)}<br/>Lng: ${lng.toFixed(6)}`)
         .openPopup();
     });
 

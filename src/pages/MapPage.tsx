@@ -133,17 +133,17 @@ export default function MapPage() {
     // Determine initial view based on role and parameters
     let initialLat = isSuperAdmin ? DELHI_CENTER[0] : ROHINI_CENTER[0];
     let initialLng = isSuperAdmin ? DELHI_CENTER[1] : ROHINI_CENTER[1];
-    let initialZoom = isSuperAdmin ? 11 : 12; // Super Admin sees wider city view
-    let minZoom = isSuperAdmin ? 10 : 12; // Super Admin can zoom out more
+    let initialZoom = isSuperAdmin ? 12 : 13; // Super Admin sees wider city view
+    let minZoom = isSuperAdmin ? 11 : 13; // Super Admin can zoom out more
 
     if (reportId && reportLat && reportLng) {
       initialLat = parseFloat(reportLat);
       initialLng = parseFloat(reportLng);
-      initialZoom = 16;
+      initialZoom = 17;
     } else if (wardNo && wardLat && wardLng) {
       initialLat = parseFloat(wardLat);
       initialLng = parseFloat(wardLng);
-      initialZoom = 13;
+      initialZoom = 14;
     }
 
     // Set bounds based on role
@@ -219,13 +219,14 @@ export default function MapPage() {
         }
       });
     } else {
-      // Ward Admin/User sees only Rohini ward boundary
+      // Ward Admin/User sees only Rohini ward boundary (NON-INTERACTIVE for proper click handling)
       const wardPolygon = L.polygon(ROHINI_WARD_BOUNDARY as L.LatLngExpression[], {
-        color: '#8b5cf6',
-        fillColor: '#a78bfa',
-        fillOpacity: 0.15,
-        weight: 4,
-        dashArray: '15, 8',
+        color: '#3b82f6',           // Blue border
+        fillColor: '#93c5fd',       // Light blue fill
+        fillOpacity: 0.12,          // Semi-transparent
+        weight: 3,
+        dashArray: '10, 5',
+        interactive: false,         // KEY: Allows map clicks to pass through
       }).addTo(map);
       
       wardPolygon.bindPopup(`
@@ -239,31 +240,56 @@ export default function MapPage() {
             </div>
             <div style="display: flex; justify-content: space-between;">
               <span>Readiness:</span>
-              <span class="font-semibold" style="color: #8b5cf6;">65%</span>
+              <span class="font-semibold" style="color: #3b82f6;">65%</span>
             </div>
           </div>
-          <p class="text-xs text-gray-400 mt-2" style="font-style: italic;">Click to zoom into ward</p>
+          <p class="text-xs text-gray-400 mt-2" style="font-style: italic;">${isAdmin ? 'Click inside boundary to mark hotspots' : 'Your ward area'}</p>
         </div>
       `);
-      
-      wardPolygon.on('click', () => {
-        map.flyTo([ROHINI_CENTER[0], ROHINI_CENTER[1]], 13, {
-          duration: 1.5,
-          easeLinearity: 0.25
-        });
-      });
     }
 
     // ONLY ADMIN CAN CLICK TO MARK - Others can only view
     if (isAdmin) {
+      // Helper function to check if point is inside polygon
+      const isPointInPolygon = (lat: number, lng: number, polygon: [number, number][]): boolean => {
+        const x = lng;
+        const y = lat;
+        let inside = false;
+
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+          const xi = polygon[i][1];
+          const yi = polygon[i][0];
+          const xj = polygon[j][1];
+          const yj = polygon[j][0];
+
+          const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+          if (intersect) inside = !inside;
+        }
+
+        return inside;
+      };
+
       map.on('click', (e: L.LeafletMouseEvent) => {
-        setNewPosition({ lat: e.latlng.lat, lng: e.latlng.lng });
+        const { lat, lng } = e.latlng;
+        
+        // Check if click is inside Rohini ward boundary
+        const inside = isPointInPolygon(lat, lng, ROHINI_WARD_BOUNDARY);
+        
+        if (!inside) {
+          toast.error('Please select a location within the Rohini ward boundary', {
+            duration: 2500,
+          });
+          return;
+        }
+        
+        setNewPosition({ lat, lng });
         
         if (tempMarkerRef.current) {
           tempMarkerRef.current.remove();
         }
         
-        tempMarkerRef.current = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
+        tempMarkerRef.current = L.marker([lat, lng]).addTo(map);
+        toast.success('Location selected! Fill the form to add hotspot', { duration: 1500 });
       });
     }
 

@@ -20,6 +20,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { 
   Building2, 
   Users, 
@@ -30,7 +31,8 @@ import {
   ChevronRight,
   Navigation,
   Info,
-  AlertTriangle
+  AlertTriangle,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -142,9 +144,10 @@ function WardCard({ ward, isSelected, onClick, delay }: WardCardProps) {
 interface WardDetailsProps {
   ward: Ward;
   onClose: () => void;
+  userRole?: 'user' | 'ward_admin' | 'super_admin';
 }
 
-function WardDetails({ ward, onClose }: WardDetailsProps) {
+function WardDetails({ ward, onClose, userRole }: WardDetailsProps) {
   const navigate = useNavigate();
 
   const handleViewMap = () => {
@@ -317,7 +320,7 @@ function WardDetails({ ward, onClose }: WardDetailsProps) {
         </TooltipProvider>
       </div>
 
-      <div>
+      <div className="space-y-3">
         <Button 
           className="w-full gradient-primary text-primary-foreground shadow-md" 
           onClick={handleViewMap}
@@ -325,6 +328,24 @@ function WardDetails({ ward, onClose }: WardDetailsProps) {
           <Navigation className="h-4 w-4 mr-2" />
           View Hotspots on GIS Map
         </Button>
+        {userRole === 'super_admin' && (
+          <Button 
+            className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground shadow-md" 
+            onClick={() => {
+              toast.success('Alert Sent!', {
+                duration: 3000,
+                style: {
+                  background: '#22c55e',
+                  color: 'white',
+                  fontWeight: '600',
+                },
+              });
+            }}
+          >
+            <AlertCircle className="h-4 w-4 mr-2" />
+            Alert Ward
+          </Button>
+        )}
       </div>
     </motion.div>
   );
@@ -366,6 +387,7 @@ export function WardGrid({ userRole, userWard }: WardGridProps) {
               key={selectedWard.wardNo}
               ward={selectedWard}
               onClose={() => setSelectedWard(null)}
+              userRole={userRole}
             />
           ) : (
             <motion.div
