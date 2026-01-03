@@ -18,7 +18,8 @@ import {
   Navigation,
   Check,
   X as XIcon,
-  Clock
+  Clock,
+  Trash2
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -106,7 +107,7 @@ const WardAdminDashboard = () => {
     return null;
   }
 
-  // Accept Report
+  // Accept Report & Deploy Resources
   const acceptReport = (reportId: number) => {
     const reports = JSON.parse(localStorage.getItem('userReports') || '[]');
     const updatedReports = reports.map((r: Report) => 
@@ -114,7 +115,14 @@ const WardAdminDashboard = () => {
     );
     localStorage.setItem('userReports', JSON.stringify(updatedReports));
     window.dispatchEvent(new Event('reportsUpdated'));
-    toast.success('Report accepted and marked as In Progress!');
+    toast.success('Resources Deployed! Report is now In Progress', {
+      duration: 3000,
+      style: {
+        background: '#22c55e',
+        color: 'white',
+        fontWeight: '600',
+      },
+    });
     setSelectedReport(null);
   };
 
@@ -139,6 +147,18 @@ const WardAdminDashboard = () => {
     localStorage.setItem('userReports', JSON.stringify(updatedReports));
     window.dispatchEvent(new Event('reportsUpdated'));
     toast.success('Report marked as resolved!');
+    setSelectedReport(null);
+  };
+
+  // Delete Report
+  const deleteReport = (reportId: number) => {
+    const reports = JSON.parse(localStorage.getItem('userReports') || '[]');
+    const updatedReports = reports.filter((r: Report) => r.id !== reportId);
+    localStorage.setItem('userReports', JSON.stringify(updatedReports));
+    window.dispatchEvent(new Event('reportsUpdated'));
+    toast.success('Report deleted successfully!', {
+      duration: 2500,
+    });
     setSelectedReport(null);
   };
 
@@ -370,7 +390,7 @@ const WardAdminDashboard = () => {
                               className="h-7 text-xs bg-success hover:bg-success/90"
                             >
                               <Check className="h-3 w-3 mr-1" />
-                              Accept
+                              Accept & Deploy
                             </Button>
                             <Button 
                               size="sm" 
@@ -411,6 +431,15 @@ const WardAdminDashboard = () => {
                         >
                           <Navigation className="h-3 w-3 mr-1" />
                           Map
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => deleteReport(report.id)}
+                          className="h-7 text-xs border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Delete
                         </Button>
                       </div>
                     </motion.div>
