@@ -205,3 +205,162 @@ export const stats = {
   activeAlerts: 12, // All alerts
   resolvedIssues: 47, // City-wide resolved issues
 };
+
+// Sensitive Areas - Important locations that affect priority
+export interface SensitiveArea {
+  id: string;
+  type: 'school' | 'hospital' | 'metro';
+  name: string;
+  latitude: number;
+  longitude: number;
+  ward: string;
+  wardNo: number;
+}
+
+// Sensitive areas for Rohini Ward (demo data)
+// All locations carefully placed within ward boundaries
+export const SENSITIVE_AREAS: SensitiveArea[] = [
+  // Hospitals in Rohini (spread across north, south, east)
+  {
+    id: 'sa_hospital_1',
+    type: 'hospital',
+    name: 'Rohini Hospital',
+    latitude: 28.7550,
+    longitude: 77.0750,
+    ward: 'Rohini',
+    wardNo: 8,
+  },
+  {
+    id: 'sa_hospital_2',
+    type: 'hospital',
+    name: 'City Health Centre',
+    latitude: 28.7050,
+    longitude: 77.1080,
+    ward: 'Rohini',
+    wardNo: 8,
+  },
+  {
+    id: 'sa_hospital_3',
+    type: 'hospital',
+    name: 'Max Super Specialty Hospital',
+    latitude: 28.7420,
+    longitude: 77.1120,
+    ward: 'Rohini',
+    wardNo: 8,
+  },
+  
+  // Schools in Rohini (spread across different sectors)
+  {
+    id: 'sa_school_1',
+    type: 'school',
+    name: 'Rohini Public School',
+    latitude: 28.7580,
+    longitude: 77.0920,
+    ward: 'Rohini',
+    wardNo: 8,
+  },
+  {
+    id: 'sa_school_2',
+    type: 'school',
+    name: 'Delhi Model School',
+    latitude: 28.7180,
+    longitude: 77.0720,
+    ward: 'Rohini',
+    wardNo: 8,
+  },
+  {
+    id: 'sa_school_3',
+    type: 'school',
+    name: 'St. Mary\'s School',
+    latitude: 28.7000,
+    longitude: 77.0920,
+    ward: 'Rohini',
+    wardNo: 8,
+  },
+  {
+    id: 'sa_school_4',
+    type: 'school',
+    name: 'DAV Public School Rohini',
+    latitude: 28.7320,
+    longitude: 77.1180,
+    ward: 'Rohini',
+    wardNo: 8,
+  },
+  
+  // Metro Stations in Rohini (along transit corridors)
+  {
+    id: 'sa_metro_1',
+    type: 'metro',
+    name: 'Rohini East Metro Station',
+    latitude: 28.7450,
+    longitude: 77.1050,
+    ward: 'Rohini',
+    wardNo: 8,
+  },
+  {
+    id: 'sa_metro_2',
+    type: 'metro',
+    name: 'Rohini West Metro Station',
+    latitude: 28.7300,
+    longitude: 77.0680,
+    ward: 'Rohini',
+    wardNo: 8,
+  },
+  {
+    id: 'sa_metro_3',
+    type: 'metro',
+    name: 'Rithala Metro Station',
+    latitude: 28.7120,
+    longitude: 77.1020,
+    ward: 'Rohini',
+    wardNo: 8,
+  },
+];
+
+// Distance calculation helper (Haversine formula)
+// Returns distance in kilometers
+export const calculateDistance = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+// Check if a location is within 750m of any sensitive area
+export const isNearSensitiveArea = (
+  latitude: number,
+  longitude: number,
+  ward: string
+): { isNear: boolean; nearestArea?: SensitiveArea; distance?: number } => {
+  const wardSensitiveAreas = SENSITIVE_AREAS.filter(area => area.ward === ward);
+  
+  let nearestArea: SensitiveArea | undefined;
+  let minDistance = Infinity;
+  
+  for (const area of wardSensitiveAreas) {
+    const distance = calculateDistance(latitude, longitude, area.latitude, area.longitude);
+    if (distance <= 0.75 && distance < minDistance) {
+      minDistance = distance;
+      nearestArea = area;
+    }
+  }
+  
+  return {
+    isNear: nearestArea !== undefined,
+    nearestArea,
+    distance: minDistance !== Infinity ? minDistance : undefined,
+  };
+};
+

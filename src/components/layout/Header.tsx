@@ -25,16 +25,24 @@ export function Header() {
     if (!user) return '/';
     if (user.role === 'super_admin') return '/super-admin-dashboard';
     if (user.role === 'ward_admin') return '/ward-admin-dashboard';
+    if (user.role === 'field_worker') return '/field-worker';
     return '/user-dashboard';
   };
   
-  const navItems = [
-    { path: getDashboardPath(), label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/map', label: 'Map', icon: Map },
-    { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-    { path: '/wards', label: 'Wards', icon: Building2 },
-    { path: '/alerts', label: 'Alerts', icon: AlertTriangle },
-  ];
+  // Field workers have limited navigation
+  const navItems = user?.role === 'field_worker' 
+    ? [
+        { path: '/field-worker', label: 'Dashboard', icon: LayoutDashboard },
+        { path: '/field-worker/analytics', label: 'Analytics', icon: BarChart3 },
+        { path: '/map', label: 'Map', icon: Map },
+      ]
+    : [
+        { path: getDashboardPath(), label: 'Dashboard', icon: LayoutDashboard },
+        { path: '/map', label: 'Map', icon: Map },
+        { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+        { path: '/wards', label: 'Wards', icon: Building2 },
+        { path: '/alerts', label: 'Alerts', icon: AlertTriangle },
+      ];
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-border/50">

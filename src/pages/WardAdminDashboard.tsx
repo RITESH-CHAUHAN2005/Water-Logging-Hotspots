@@ -8,7 +8,6 @@ import {
   AlertTriangle, 
   MapPin,
   CheckCircle,
-  Settings,
   LogOut,
   BarChart3,
   Building2,
@@ -19,15 +18,20 @@ import {
   Check,
   X as XIcon,
   Clock,
-  Trash2
+  Trash2,
+  ThumbsUp,
+  ThumbsDown,
+  UserCheck
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { isNearSensitiveArea } from '@/data/mockData';
 
 interface Report {
   id: number;
@@ -37,10 +41,17 @@ interface Report {
   location: string;
   latitude: number;
   longitude: number;
-  status: 'Pending' | 'In Progress' | 'Resolved' | 'Rejected';
+  status: 'Pending' | 'In Progress' | 'Assigned' | 'Work Completed' | 'Resolved' | 'Rejected';
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
   date: string;
   image?: string | null;
+  feedback?: 'positive' | 'negative' | null;
+  feedbackDate?: string;
+  assignedWorkerId?: string;
+  assignedWorkerName?: string;
+  completionProofUrl?: string;
+  workerStartedAt?: string;
+  workerCompletedAt?: string;
 }
 
 const WardAdminDashboard = () => {
@@ -50,6 +61,10 @@ const WardAdminDashboard = () => {
   const [wardReports, setWardReports] = useState<Report[]>([]);
   const [wardHotspots, setWardHotspots] = useState<any[]>([]);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [fieldWorkers, setFieldWorkers] = useState<any[]>([]);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [reportToAssign, setReportToAssign] = useState<number | null>(null);
+  const [selectedWorker, setSelectedWorker] = useState<string>('');
 
   // Redirect if not logged in or not ward admin
   useEffect(() => {
@@ -93,9 +108,15 @@ const WardAdminDashboard = () => {
         h.wardNo === user.wardNo || h.location?.toLowerCase().includes(currentWard.toLowerCase())
       );
       
+      // Get field workers for this ward
+      const workers = allUsers.filter((u: any) => 
+        u.role === 'field_worker' && u.ward === currentWard
+      );
+      
       setWardUsers(filteredUsers);
       setWardReports(filteredReports);
       setWardHotspots(filteredHotspots);
+      setFieldWorkers(workers);
     };
 
     loadData();
@@ -107,15 +128,39 @@ const WardAdminDashboard = () => {
     return null;
   }
 
-  // Accept Report & Deploy Resources
+  // Accept Report & Show Assignment Modal
   const acceptReport = (reportId: number) => {
+    setReportToAssign(reportId);
+    setShowAssignModal(true);
+  };
+
+  // Assign Report to Field Worker
+  const assignToWorker = () => {
+    if (!selectedWorker || !reportToAssign) {
+      toast.error('Please select a field worker');
+      return;
+    }
+
+    const worker = fieldWorkers.find(w => w.id === selectedWorker);
+    if (!worker) {
+      toast.error('Field worker not found');
+      return;
+    }
+
     const reports = JSON.parse(localStorage.getItem('userReports') || '[]');
-    const updatedReports = reports.map((r: Report) => 
-      r.id === reportId ? { ...r, status: 'In Progress' as const } : r
+    const updatedReports = reports.map((r: any) => 
+      r.id === reportToAssign ? { 
+        ...r, 
+        status: 'Assigned',
+        assignedWorkerId: worker.id,
+        assignedWorkerName: worker.name,
+        assignedAt: new Date().toISOString()
+      } : r
     );
     localStorage.setItem('userReports', JSON.stringify(updatedReports));
     window.dispatchEvent(new Event('reportsUpdated'));
-    toast.success('Resources Deployed! Report is now In Progress', {
+    
+    toast.success(`Report assigned to ${worker.name}!`, {
       duration: 3000,
       style: {
         background: '#22c55e',
@@ -123,6 +168,10 @@ const WardAdminDashboard = () => {
         fontWeight: '600',
       },
     });
+    
+    setShowAssignModal(false);
+    setReportToAssign(null);
+    setSelectedWorker('');
     setSelectedReport(null);
   };
 
@@ -165,12 +214,16 @@ const WardAdminDashboard = () => {
   const stats = {
     totalUsers: wardUsers.length,
     totalReports: wardReports.length,
-    activeAlerts: wardReports.filter(r => r.status === 'Pending' || r.status === 'In Progress').length,
+    activeAlerts: wardReports.filter(r => r.status === 'Pending' || r.status === 'Assigned' || r.status === 'In Progress' || r.status === 'Work Completed').length,
     resolvedToday: wardReports.filter(r => {
       const reportDate = new Date(r.date);
       const today = new Date();
       return r.status === 'Resolved' && reportDate.toDateString() === today.toDateString();
     }).length,
+    positiveFeedback: wardReports.filter(r => r.status === 'Resolved' && r.feedback === 'positive').length,
+    negativeFeedback: wardReports.filter(r => r.status === 'Resolved' && r.feedback === 'negative').length,
+    resolvedWithFeedback: wardReports.filter(r => r.status === 'Resolved' && r.feedback).length,
+    totalResolved: wardReports.filter(r => r.status === 'Resolved').length,
   };
 
   const recentReports = wardReports
@@ -189,6 +242,8 @@ const WardAdminDashboard = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Resolved': return 'bg-success/20 text-success border-success/30';
+      case 'Work Completed': return 'bg-blue-500/20 text-blue-600 border-blue-500/30';
+      case 'Assigned': return 'bg-orange-500/20 text-orange-600 border-orange-500/30';
       case 'In Progress': return 'bg-warning/20 text-warning border-warning/30';
       case 'Pending': return 'bg-primary/20 text-primary border-primary/30';
       case 'Rejected': return 'bg-destructive/20 text-destructive border-destructive/30';
@@ -243,10 +298,6 @@ const WardAdminDashboard = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
-            </Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
@@ -264,7 +315,7 @@ const WardAdminDashboard = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <Card className="glass-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -317,6 +368,34 @@ const WardAdminDashboard = () => {
               </div>
             </CardContent>
           </Card>
+          <Card className="glass-card bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-950/20 dark:to-green-950/20">
+            <CardContent className="p-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <ThumbsUp className="h-4 w-4 text-success" />
+                  <p className="text-xs text-muted-foreground">Satisfaction</p>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-2xl font-bold">
+                    {stats.totalResolved > 0 
+                      ? Math.round((stats.positiveFeedback / stats.totalResolved) * 100)
+                      : 0}%
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    ({stats.positiveFeedback}/{stats.totalResolved})
+                  </p>
+                </div>
+                <div className="flex gap-2 text-xs">
+                  <span className="text-success flex items-center gap-1">
+                    <ThumbsUp className="h-3 w-3" /> {stats.positiveFeedback}
+                  </span>
+                  <span className="text-destructive flex items-center gap-1">
+                    <ThumbsDown className="h-3 w-3" /> {stats.negativeFeedback}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
@@ -340,14 +419,37 @@ const WardAdminDashboard = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {recentReports.map((report, index) => (
+                  {wardReports.map((report, index) => {
+                    // Check if report is near sensitive area
+                    const proximityCheck = isNearSensitiveArea(report.latitude, report.longitude, user.ward);
+                    const isNearSensitive = proximityCheck.isNear;
+
+                    return (
                     <motion.div
                       key={report.id}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="p-4 rounded-lg bg-secondary/50 border border-border/50 hover:bg-secondary/70 transition-colors"
+                      className={`p-4 rounded-lg border transition-colors ${
+                        isNearSensitive 
+                          ? 'bg-red-50/50 dark:bg-red-950/20 border-red-400 dark:border-red-800 shadow-sm' 
+                          : 'bg-secondary/50 border-border/50'
+                      } hover:bg-secondary/70`}
                     >
+                      {/* Sensitive Area Warning Banner */}
+                      {isNearSensitive && (
+                        <div className="mb-3 flex items-start gap-2 p-2.5 rounded-lg bg-red-100 dark:bg-red-950/40 border border-red-300 dark:border-red-800">
+                          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-xs font-semibold text-red-800 dark:text-red-300">
+                              Critical Priority Zone
+                            </p>
+                            <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">
+                              Within 750m of {proximityCheck.nearestArea?.name} • Distance: {(proximityCheck.distance! * 1000).toFixed(0)}m
+                            </p>
+                          </div>
+                        </div>
+                      )}
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-start gap-3 flex-1">
                           <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
@@ -380,6 +482,45 @@ const WardAdminDashboard = () => {
                         <span>{new Date(report.date).toLocaleDateString()}</span>
                       </div>
 
+                      {/* Display user feedback for resolved reports */}
+                      {report.status === 'Resolved' && report.feedback && (
+                        <div className="flex items-center gap-2 mb-3 p-2 rounded-lg bg-muted/50">
+                          <div className="flex items-center gap-1 text-xs">
+                            {report.feedback === 'positive' ? (
+                              <>
+                                <ThumbsUp className="h-3.5 w-3.5 text-success fill-success" />
+                                <span className="text-success font-medium">Citizen satisfied with resolution</span>
+                              </>
+                            ) : (
+                              <>
+                                <ThumbsDown className="h-3.5 w-3.5 text-destructive fill-destructive" />
+                                <span className="text-destructive font-medium">Citizen unsatisfied with resolution</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Display assigned worker info */}
+                      {(report.status === 'Assigned' || report.status === 'In Progress' || report.status === 'Work Completed') && report.assignedWorkerName && (
+                        <div className="flex items-center gap-2 mb-3 p-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                          <UserCheck className="h-3.5 w-3.5 text-orange-600" />
+                          <span className="text-xs text-orange-700 dark:text-orange-400 font-medium">
+                            Assigned to: {report.assignedWorkerName}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Show completion proof indicator */}
+                      {report.status === 'Work Completed' && report.completionProofUrl && (
+                        <div className="flex items-center gap-2 mb-3 p-2 rounded-lg bg-success/10 border border-success/20">
+                          <CheckCircle className="h-3.5 w-3.5 text-success" />
+                          <span className="text-xs text-success font-medium">
+                            Work completed with proof - Ready for verification
+                          </span>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-2 mt-3">
                         {report.status === 'Pending' && (
                           <>
@@ -389,8 +530,8 @@ const WardAdminDashboard = () => {
                               onClick={() => acceptReport(report.id)}
                               className="h-7 text-xs bg-success hover:bg-success/90"
                             >
-                              <Check className="h-3 w-3 mr-1" />
-                              Accept & Deploy
+                              <UserCheck className="h-3 w-3 mr-1" />
+                              Assign Worker
                             </Button>
                             <Button 
                               size="sm" 
@@ -402,6 +543,17 @@ const WardAdminDashboard = () => {
                               Reject
                             </Button>
                           </>
+                        )}
+                        {report.status === 'Work Completed' && (
+                          <Button 
+                            size="sm" 
+                            variant="default"
+                            onClick={() => resolveReport(report.id)}
+                            className="h-7 text-xs bg-success hover:bg-success/90"
+                          >
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Verify & Resolve
+                          </Button>
                         )}
                         {report.status === 'In Progress' && (
                           <Button 
@@ -443,7 +595,8 @@ const WardAdminDashboard = () => {
                         </Button>
                       </div>
                     </motion.div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -554,18 +707,70 @@ const WardAdminDashboard = () => {
                     <p className="text-sm">{new Date(selectedReport.date).toLocaleString()}</p>
                   </div>
 
+                  {/* Show assigned worker info */}
+                  {selectedReport.assignedWorkerName && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Assigned To</p>
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="h-4 w-4 text-orange-600" />
+                        <p className="text-sm font-medium">{selectedReport.assignedWorkerName}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show work timeline */}
+                  {selectedReport.workerStartedAt && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Work Started</p>
+                      <p className="text-sm">{new Date(selectedReport.workerStartedAt).toLocaleString()}</p>
+                    </div>
+                  )}
+
+                  {selectedReport.workerCompletedAt && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Work Completed</p>
+                      <p className="text-sm">{new Date(selectedReport.workerCompletedAt).toLocaleString()}</p>
+                    </div>
+                  )}
+
+                  {/* Show completion proof for Work Completed reports */}
+                  {selectedReport.status === 'Work Completed' && selectedReport.completionProofUrl && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2">Completion Proof</p>
+                      <div className="rounded-xl overflow-hidden border-2 border-success/30 shadow-lg">
+                        <img 
+                          src={selectedReport.completionProofUrl} 
+                          alt="Completion Proof" 
+                          className="w-full h-64 object-cover" 
+                        />
+                      </div>
+                      <div className="mt-2 p-3 rounded-lg bg-success/10 border border-success/20">
+                        <p className="text-xs text-success font-medium flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4" />
+                          Field worker has uploaded proof of work completion. Please review and verify.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex gap-2 pt-4">
                     {selectedReport.status === 'Pending' && (
                       <>
                         <Button className="flex-1 bg-success hover:bg-success/90" onClick={() => acceptReport(selectedReport.id)}>
-                          <Check className="h-4 w-4 mr-2" />
-                          Accept Report
+                          <UserCheck className="h-4 w-4 mr-2" />
+                          Assign Worker
                         </Button>
                         <Button variant="destructive" className="flex-1" onClick={() => rejectReport(selectedReport.id)}>
                           <XIcon className="h-4 w-4 mr-2" />
                           Reject Report
                         </Button>
                       </>
+                    )}
+                    {selectedReport.status === 'Work Completed' && (
+                      <Button className="flex-1 bg-success hover:bg-success/90" onClick={() => resolveReport(selectedReport.id)}>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Verify & Resolve
+                      </Button>
                     )}
                     {selectedReport.status === 'In Progress' && (
                       <Button className="flex-1 bg-success hover:bg-success/90" onClick={() => resolveReport(selectedReport.id)}>
@@ -576,6 +781,104 @@ const WardAdminDashboard = () => {
                     <Button onClick={() => viewOnMap(selectedReport.latitude, selectedReport.longitude, selectedReport.id)}>
                       <Navigation className="h-4 w-4 mr-2" />
                       View on Map
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Field Worker Assignment Modal */}
+      <AnimatePresence>
+        {showAssignModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+              onClick={() => {
+                setShowAssignModal(false);
+                setReportToAssign(null);
+                setSelectedWorker('');
+              }}
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md glass-card rounded-2xl p-6"
+              >
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold">Assign Field Worker</h3>
+                    <p className="text-sm text-muted-foreground">Select a field worker to assign this report</p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => {
+                      setShowAssignModal(false);
+                      setReportToAssign(null);
+                      setSelectedWorker('');
+                    }}
+                  >
+                    <XIcon className="h-5 w-5" />
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium mb-2">Available Field Workers</p>
+                    {fieldWorkers.length === 0 ? (
+                      <div className="p-4 rounded-lg bg-muted/50 text-center">
+                        <p className="text-sm text-muted-foreground">No field workers available in {user.ward} ward</p>
+                      </div>
+                    ) : (
+                      <Select value={selectedWorker} onValueChange={setSelectedWorker}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a field worker" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {fieldWorkers.map((worker) => (
+                            <SelectItem key={worker.id} value={worker.id}>
+                              <div className="flex items-center gap-2">
+                                <UserCheck className="h-4 w-4" />
+                                <div>
+                                  <p className="font-medium">{worker.name}</p>
+                                  <p className="text-xs text-muted-foreground">{worker.email}</p>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 pt-4">
+                    <Button 
+                      className="flex-1" 
+                      variant="outline" 
+                      onClick={() => {
+                        setShowAssignModal(false);
+                        setReportToAssign(null);
+                        setSelectedWorker('');
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      className="flex-1 bg-success hover:bg-success/90" 
+                      onClick={assignToWorker}
+                      disabled={!selectedWorker || fieldWorkers.length === 0}
+                    >
+                      <Check className="h-4 w-4 mr-2" />
+                      Assign
                     </Button>
                   </div>
                 </div>

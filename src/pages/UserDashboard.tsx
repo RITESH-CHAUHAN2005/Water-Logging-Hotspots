@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   FileText,
   LogOut,
-  Settings,
   ChevronRight
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
@@ -20,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { ReportIssueModal } from '@/components/user/ReportIssueModal';
+import { FeedbackButtons } from '@/components/user/FeedbackButtons';
 
 interface Report {
   id: number;
@@ -28,6 +28,8 @@ interface Report {
   date: string;
   description: string;
   userId: string;
+  feedback?: 'positive' | 'negative' | null;
+  feedbackDate?: string;
 }
 
 const UserDashboard = () => {
@@ -40,8 +42,27 @@ const UserDashboard = () => {
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
+      return;
     }
-  }, [isAuthenticated, navigate]);
+    
+    // Redirect field workers to their dashboard
+    if (user?.role === 'field_worker') {
+      navigate('/field-worker');
+      return;
+    }
+    
+    // Redirect ward admins to their dashboard
+    if (user?.role === 'ward_admin') {
+      navigate('/ward-admin-dashboard');
+      return;
+    }
+    
+    // Redirect super admins to their dashboard
+    if (user?.role === 'super_admin') {
+      navigate('/super-admin-dashboard');
+      return;
+    }
+  }, [isAuthenticated, user, navigate]);
 
   // Load user's reports from localStorage
   useEffect(() => {
@@ -132,10 +153,6 @@ const UserDashboard = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
-            </Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
@@ -199,7 +216,8 @@ const UserDashboard = () => {
           </Card>
         </div>
 
-        {/* Quick Actions */}
+        {/* Quick Actions - Hidden for field workers */}
+        {user.role !== 'field_worker' && (
         <Card className="glass-card">
           <CardHeader>
             <CardTitle className="text-lg">Quick Actions</CardTitle>
@@ -230,6 +248,7 @@ const UserDashboard = () => {
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* Recent Reports */}
         <Card className="glass-card">
@@ -247,12 +266,17 @@ const UserDashboard = () => {
                 <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                 <h3 className="font-semibold mb-2">No Reports Yet</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Start by reporting waterlogging issues in your area
+                  {user.role === 'field_worker' 
+                    ? 'You have not submitted any reports'
+                    : 'Start by reporting waterlogging issues in your area'
+                  }
                 </p>
-                <Button onClick={() => setIsReportModalOpen(true)}>
-                  <Camera className="h-4 w-4 mr-2" />
-                  Report Issue
-                </Button>
+                {user.role !== 'field_worker' && (
+                  <Button onClick={() => setIsReportModalOpen(true)}>
+                    <Camera className="h-4 w-4 mr-2" />
+                    Report Issue
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
@@ -274,7 +298,17 @@ const UserDashboard = () => {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">{report.description}</p>
-                    <p className="text-xs text-muted-foreground">Submitted: {new Date(report.date).toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground mb-3">Submitted: {new Date(report.date).toLocaleString()}</p>
+                    
+                    {/* Feedback Section - Only show for resolved reports */}
+                    {report.status === 'Resolved' && (
+                      <div className="mt-4 pt-4 border-t border-border/50">
+                        <FeedbackButtons 
+                          reportId={report.id}
+                          currentFeedback={report.feedback}
+                        />
+                      </div>
+                    )}
                   </motion.div>
                 ))}
               </div>

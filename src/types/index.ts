@@ -47,3 +47,39 @@ export interface RainfallData {
   total: number;
   isPrediction?: boolean;
 }
+
+// Sensitive Area Types
+export interface SensitiveArea {
+  id: string;
+  type: 'hospital' | 'school' | 'metro';
+  name: string;
+  latitude: number;
+  longitude: number;
+  ward: string;
+  wardNo: number;
+}
+
+// User Report with Field Worker assignment
+export interface UserReport {
+  id: number;
+  userId: string;
+  user: string;
+  description: string;
+  location: string;
+  latitude: number;
+  longitude: number;
+  status: 'Pending' | 'In Progress' | 'Assigned' | 'Work Completed' | 'Resolved' | 'Rejected';
+  priority: 'Low' | 'Medium' | 'High' | 'Critical';
+  date: string;
+  image?: string | null;
+  feedback?: 'positive' | 'negative' | null;
+  feedbackDate?: string;
+  ward?: string;
+  
+  // Field Worker related fields
+  assignedWorkerId?: string;
+  assignedWorkerName?: string;
+  workerStartedAt?: string;
+  workerCompletedAt?: string;
+  completionProofUrl?: string;
+}

@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, 
   LogOut, 
-  Settings, 
   LayoutDashboard,
   ChevronDown,
   Shield
@@ -106,21 +105,20 @@ export function UserMenu() {
             {/* Menu Items */}
             <div className="py-2">
               <Link
-                to={user.role === 'admin' ? '/admin-dashboard' : '/user-dashboard'}
+                to={
+                  user.role === 'super_admin' 
+                    ? '/super-admin-dashboard' 
+                    : user.role === 'ward_admin' 
+                    ? '/ward-admin-dashboard'
+                    : user.role === 'field_worker'
+                    ? '/field-worker'
+                    : '/user-dashboard'
+                }
                 onClick={() => setIsOpen(false)}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/80 transition-colors"
               >
                 <LayoutDashboard className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">My Dashboard</span>
-              </Link>
-              
-              <Link
-                to="/settings"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/80 transition-colors"
-              >
-                <Settings className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Settings</span>
               </Link>
             </div>
 
