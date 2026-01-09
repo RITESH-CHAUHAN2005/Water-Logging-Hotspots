@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, MapPin, Clock, Ruler, Navigation, X, Route } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { hotspots, wards, ROHINI_WARD_BOUNDARY, ROHINI_CENTER } from '@/data/mockData';
+import { hotspots, wards, ROHINI_WARD_BOUNDARY, ROHINI_CENTER, SENSITIVE_AREAS, type SensitiveArea } from '@/data/mockData';
 import type { Hotspot, RiskLevel } from '@/types';
 import 'leaflet/dist/leaflet.css';
 
@@ -59,6 +59,51 @@ const userIcon = L.divIcon({
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
+
+// Sensitive Area Icons
+const createSensitiveIcon = (type: 'school' | 'hospital' | 'metro') => {
+  const configs = {
+    hospital: {
+      color: '#ef4444',
+      emoji: '🏥',
+      label: 'Hospital'
+    },
+    school: {
+      color: '#3b82f6',
+      emoji: '🏫',
+      label: 'School'
+    },
+    metro: {
+      color: '#8b5cf6',
+      emoji: '🚇',
+      label: 'Metro'
+    }
+  };
+  
+  const config = configs[type];
+  
+  return L.divIcon({
+    className: 'sensitive-area-marker',
+    html: `
+      <div style="
+        background: white;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 3px solid ${config.color};
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+      ">
+        ${config.emoji}
+      </div>
+    `,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  });
+};
 
 // MCD Ward Icon with Building Symbol
 const createMCDIcon = (wardNo: number, readiness: number) => {
@@ -150,9 +195,16 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 interface HotspotMapProps {
   showGeofencing?: boolean;
   height?: string;
+  userRole?: 'user' | 'ward_admin' | 'super_admin';
+  ward?: string;
 }
 
-export function HotspotMap({ showGeofencing = true, height = '500px' }: HotspotMapProps) {
+export function HotspotMap({ 
+  showGeofencing = true, 
+  height = '500px',
+  userRole = 'user',
+  ward = 'Rohini'
+}: HotspotMapProps) {
   const [userPosition, setUserPosition] = useState<[number, number]>(ROHINI_CENTER);
   const [alertHotspot, setAlertHotspot] = useState<Hotspot | null>(null);
   const [alertDistance, setAlertDistance] = useState<number>(0);
@@ -398,6 +450,42 @@ export function HotspotMap({ showGeofencing = true, height = '500px' }: HotspotM
               </Popup>
             </Marker>
           )}
+
+          {/* Sensitive Area Markers - Only visible to Ward Admin */}
+          {userRole === 'ward_admin' && SENSITIVE_AREAS
+            .filter(area => area.ward === ward)
+            .map((area) => (
+              <Marker
+                key={`sensitive-${area.id}`}
+                position={[area.latitude, area.longitude]}
+                icon={createSensitiveIcon(area.type)}
+              >
+                <Popup>
+                  <div className="p-3 min-w-[220px]">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-2xl">{
+                        area.type === 'hospital' ? '🏥' :
+                        area.type === 'school' ? '🏫' : '🚇'
+                      }</span>
+                      <div>
+                        <h3 className="font-bold text-gray-900">{area.name}</h3>
+                        <p className="text-xs text-gray-600 capitalize">{area.type}</p>
+                      </div>
+                    </div>
+                    <div className="text-xs bg-orange-50 border border-orange-200 rounded p-2 mt-2">
+                      <p className="font-semibold text-orange-800">⚠️ Sensitive Area</p>
+                      <p className="text-orange-700 mt-1">
+                        Reports within 750m are automatically marked as HIGH priority
+                      </p>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      Ward {area.wardNo} · {area.ward}
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            ))
+          }
         </MapContainer>
       </div>
 

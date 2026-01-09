@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { ROHINI_WARD_BOUNDARY, ROHINI_CENTER } from '@/data/mockData';
+import { ROHINI_WARD_BOUNDARY, ROHINI_CENTER, isNearSensitiveArea } from '@/data/mockData';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -39,6 +39,11 @@ export function ReportIssueModal({ isOpen, onClose }: ReportIssueModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
 
+  // Block field workers from reporting
+  if (user?.role === 'field_worker') {
+    return null;
+  }
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -66,18 +71,37 @@ export function ReportIssueModal({ isOpen, onClose }: ReportIssueModalProps) {
       // Save report to localStorage
       const reports = JSON.parse(localStorage.getItem('userReports') || '[]');
       
+      const reportLat = parseFloat(formData.latitude);
+      const reportLng = parseFloat(formData.longitude);
+      const ward = user?.ward || 'Rohini';
+      
+      // Check if report is near sensitive area
+      const sensitiveCheck = isNearSensitiveArea(reportLat, reportLng, ward);
+      
+      // Determine priority based on sensitive area proximity
+      let priority: 'Low' | 'Medium' | 'High' | 'Critical' = 'Medium';
+      let priorityReason = '';
+      
+      if (sensitiveCheck.isNear && sensitiveCheck.nearestArea) {
+        priority = 'High';
+        priorityReason = `Near Sensitive Area (${sensitiveCheck.nearestArea.type})`;
+      }
+      
       const newReport = {
         id: Date.now(),
         userId: user?.id,
         user: user?.name || 'Anonymous',
         description: formData.description,
-        location: `${user?.ward || 'Rohini'}, Delhi (${formData.latitude}, ${formData.longitude})`,
-        ward: user?.ward || 'Rohini',
+        location: `${ward}, Delhi (${formData.latitude}, ${formData.longitude})`,
+        ward,
         wardNo: user?.wardNo || 8,
-        latitude: parseFloat(formData.latitude),
-        longitude: parseFloat(formData.longitude),
+        latitude: reportLat,
+        longitude: reportLng,
         status: 'Pending',
-        priority: 'Medium',
+        priority,
+        priorityReason,
+        nearSensitiveArea: sensitiveCheck.isNear,
+        sensitiveAreaInfo: sensitiveCheck.nearestArea,
         date: new Date().toISOString(),
         image: formData.image ? URL.createObjectURL(formData.image) : null,
       };

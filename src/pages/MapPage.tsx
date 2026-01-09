@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { ROHINI_WARD_BOUNDARY, ROHINI_CENTER, CURRENT_WARD, DELHI_CENTER, WARD_BOUNDARIES, wards } from '@/data/mockData';
+import { ROHINI_WARD_BOUNDARY, ROHINI_CENTER, CURRENT_WARD, DELHI_CENTER, WARD_BOUNDARIES, wards, SENSITIVE_AREAS, isNearSensitiveArea } from '@/data/mockData';
 
 // Fix icon URLs
 const iconRetinaUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png';
@@ -55,6 +55,7 @@ export default function MapPage() {
   const markersRef = useRef<L.Marker[]>([]);
   const circlesRef = useRef<L.Circle[]>([]);
   const reportMarkersRef = useRef<L.Marker[]>([]);
+  const reportCirclesRef = useRef<L.Circle[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const tempMarkerRef = useRef<L.Marker | null>(null);
@@ -366,7 +367,9 @@ export default function MapPage() {
     if (!mapRef.current) return;
 
     reportMarkersRef.current.forEach(marker => marker.remove());
+    reportCirclesRef.current.forEach(circle => circle.remove());
     reportMarkersRef.current = [];
+    reportCirclesRef.current = [];
 
     reports.forEach((report) => {
       if (!report.latitude || !report.longitude) return;
@@ -477,6 +480,29 @@ export default function MapPage() {
       }
 
       reportMarkersRef.current.push(marker);
+
+      // Add colored circle based on proximity to sensitive areas
+      // Each report has a 750m priority zone
+      // RED if ANY sensitive location is within 750m (d <= 750m)
+      // BLUE if NO sensitive locations within 750m
+      const reportWard = user?.ward || 'Rohini';
+      const proximityCheck = isNearSensitiveArea(report.latitude, report.longitude, reportWard);
+      
+      // Critical (RED) if sensitive location inside or on 750m boundary
+      // Normal (BLUE) if no sensitive locations within range
+      const circleColor = proximityCheck.isNear ? '#ef4444' : '#3b82f6';
+      const circleFillColor = proximityCheck.isNear ? '#fecaca' : '#bfdbfe';
+      
+      const circle = L.circle([report.latitude, report.longitude], {
+        radius: 750, // 750m radius priority zone around each report
+        color: circleColor,
+        fillColor: circleFillColor,
+        fillOpacity: 0.15,
+        weight: 2,
+        dashArray: proximityCheck.isNear ? '10, 5' : '5, 10',
+      }).addTo(mapRef.current!);
+
+      reportCirclesRef.current.push(circle);
     });
 
     const handleReportsUpdate = () => {
@@ -485,8 +511,100 @@ export default function MapPage() {
     };
 
     window.addEventListener('reportsUpdated', handleReportsUpdate);
-    return () => window.removeEventListener('reportsUpdated', handleReportsUpdate);
-  }, [reports, reportId, mapRef.current]);
+    return () => {
+      window.removeEventListener('reportsUpdated', handleReportsUpdate);
+      reportCirclesRef.current.forEach(circle => circle.remove());
+    };
+  }, [reports, reportId, mapRef.current, user]);
+
+  // Sensitive Area Markers (ONLY FOR WARD ADMIN)
+  const sensitiveMarkersRef = useRef<L.Marker[]>([]);
+
+  useEffect(() => {
+    if (!mapRef.current || user?.role !== 'ward_admin') return;
+
+    // Clear previous markers
+    sensitiveMarkersRef.current.forEach(marker => marker.remove());
+    sensitiveMarkersRef.current = [];
+
+    const wardSensitiveAreas = SENSITIVE_AREAS.filter(area => area.ward === user.ward);
+
+    wardSensitiveAreas.forEach((area) => {
+      // Icon configurations
+      const icons = {
+        hospital: { color: '#ef4444', emoji: '🏥', label: 'Hospital' },
+        school: { color: '#3b82f6', emoji: '🏫', label: 'School' },
+        metro: { color: '#8b5cf6', emoji: '🚇', label: 'Metro Station' }
+      };
+
+      const config = icons[area.type];
+
+      // Create custom icon
+      const sensitiveIcon = L.divIcon({
+        className: 'sensitive-area-marker',
+        html: `
+          <div style="
+            background: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid ${config.color};
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+          ">
+            ${config.emoji}
+          </div>
+        `,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+      });
+
+      // Add marker
+      const marker = L.marker([area.latitude, area.longitude], { icon: sensitiveIcon })
+        .addTo(mapRef.current!)
+        .bindPopup(`
+          <div style="padding: 14px; min-width: 240px; background: #1f2937; color: white; border-radius: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+              <span style="font-size: 24px;">${config.emoji}</span>
+              <div>
+                <h3 style="font-weight: bold; font-size: 16px; color: ${config.color}; margin-bottom: 2px;">
+                  ${area.name}
+                </h3>
+                <p style="font-size: 11px; color: #9ca3af; text-transform: capitalize;">${config.label}</p>
+              </div>
+            </div>
+            <div style="
+              background: #fef3c7;
+              border: 1px solid #fbbf24;
+              border-radius: 8px;
+              padding: 10px;
+              margin-bottom: 10px;
+            ">
+              <p style="font-size: 11px; font-weight: 600; color: #92400e; margin-bottom: 4px;">
+                ⚠️ Sensitive Area
+              </p>
+              <p style="font-size: 10px; color: #78350f; line-height: 1.4;">
+                Reports within 750m radius are automatically marked as HIGH priority
+              </p>
+            </div>
+            <div style="font-size: 10px; color: #9ca3af;">
+              Ward ${area.wardNo} · ${area.ward}
+            </div>
+          </div>
+        `, {
+          className: 'custom-popup'
+        });
+
+      sensitiveMarkersRef.current.push(marker);
+    });
+
+    return () => {
+      sensitiveMarkersRef.current.forEach(marker => marker.remove());
+    };
+  }, [user, mapRef.current]);
 
   // Search location function
   const searchLocation = async (e: React.FormEvent) => {

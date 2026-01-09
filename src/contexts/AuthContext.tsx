@@ -5,7 +5,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'user' | 'ward_admin' | 'super_admin';
+  role: 'user' | 'ward_admin' | 'super_admin' | 'field_worker';
   phone?: string;
   address?: string;
   createdAt: string;
@@ -17,7 +17,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, role: 'user' | 'ward_admin' | 'super_admin') => Promise<boolean>;
+  login: (email: string, password: string, role: 'user' | 'ward_admin' | 'super_admin' | 'field_worker') => Promise<boolean>;
   signup: (data: SignupData) => Promise<boolean>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => void;
@@ -28,7 +28,7 @@ interface SignupData {
   email: string;
   password: string;
   phone?: string;
-  role: 'user' | 'ward_admin' | 'super_admin';
+  role: 'user' | 'ward_admin' | 'super_admin' | 'field_worker';
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -103,6 +103,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('🔑 Password: superadmin123');
     }
     
+    // Create Field Worker for Rohini
+    const fieldWorkerExists = users.some((u: User) => u.email === 'worker@rohini.gov.in');
+    if (!fieldWorkerExists) {
+      const fieldWorkerUser: User = {
+        id: 'field_worker_rohini_1',
+        name: 'Rajesh Kumar',
+        email: 'worker@rohini.gov.in',
+        role: 'field_worker',
+        phone: '+91 98765 43210',
+        createdAt: new Date().toISOString(),
+        ward: 'Rohini',
+        wardNo: 8,
+      };
+      
+      const fieldWorkerCred = {
+        email: 'worker@rohini.gov.in',
+        password: 'worker123',
+        userId: 'field_worker_rohini_1',
+      };
+      
+      users.push(fieldWorkerUser);
+      credentials.push(fieldWorkerCred);
+      updated = true;
+      
+      console.log('✅ Field Worker account created');
+      console.log('📧 Email: worker@rohini.gov.in');
+      console.log('🔑 Password: worker123');
+    }
+    
     // Only save if accounts were created
     if (updated) {
       localStorage.setItem('users', JSON.stringify(users));
@@ -170,7 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string, role: 'user' | 'ward_admin' | 'super_admin'): Promise<boolean> => {
+  const login = async (email: string, password: string, role: 'user' | 'ward_admin' | 'super_admin' | 'field_worker'): Promise<boolean> => {
     try {
       // Get credentials
       const credentials = JSON.parse(localStorage.getItem('credentials') || '[]');
@@ -197,7 +226,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const roleNames = {
           user: 'User',
           ward_admin: 'Ward Admin',
-          super_admin: 'Super Admin'
+          super_admin: 'Super Admin',
+          field_worker: 'Field Worker'
         };
         toast.error(`This account is not registered as ${roleNames[role]}!`);
         return false;
